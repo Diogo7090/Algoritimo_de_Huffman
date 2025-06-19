@@ -66,7 +66,6 @@ class No {
 class Heap {
     private:
         vector <No*> lista;
-
         int pai(int posicao);
         int filhoEsquerdo(int posicao);
         int filhoDireito(int posicao);
@@ -84,6 +83,8 @@ class Heap {
         No *extraiMinimo();
         Heap(vector <No*> listaTabela);
         void imprimeHeap();
+        void imprimeOrdem(No *noz);
+        No *raizArvore = nullptr;
 };
 
 int main() {
@@ -107,6 +108,7 @@ void opcaoCompactar(FILE *arquivoPtr) {
     heap.imprimeHeap();
     heap.juntaNos();
     heap.imprimeHeap();
+    heap.imprimeOrdem(heap.raizArvore);
 }
 
 void Frequencia::contadorDeFrequencia() {
@@ -181,7 +183,7 @@ No* Heap::juntaNos() {
     No *no2 = nullptr;
     int frequencia;
 
-    while ((lista.size()) != 1) {
+    while ((lista.size()) > 1) {
         no1 = extraiMinimo();
         no2 = extraiMinimo();
 
@@ -193,6 +195,7 @@ No* Heap::juntaNos() {
             
         insere(novo);
     }
+    raizArvore = lista[0];
     return lista[0];
 }
 
@@ -201,12 +204,17 @@ No* Heap::extraiMinimo() {
     troca(0, (lista.size()) - 1);
 
     lista.pop_back();
+    desce(0);
 
     return armazena;
 }
 
 Heap::Heap(vector <No*> listaTabela) {
     lista = listaTabela;
+    int meio = ((lista.size())/2);
+    for (int i = (meio); i > 0; i--) {
+        desce(i);
+    }
 }
 
 vector <No*> Frequencia::criarVetorFinal() {
@@ -227,4 +235,17 @@ void Heap::imprimeHeap() {
         printf("Caractere -> %c, frequencia->%d\n\n", (lista[i])->caractereChave, 
         (lista[i])->frequenciaChar);
     }
+}
+
+void Heap::imprimeOrdem(No *noz) {
+    //printf("\n----%d", noz->frequenciaChar);
+    // printf("Caractere -> %c, frequencia->%d\n\n", noz->caractereChave, 
+    // noz->frequenciaChar);
+    if (noz == nullptr) {
+        return;
+    }
+    imprimeOrdem(noz->esq);
+    printf("\nCaractere -> %c, frequencia->%d\n\n", noz->caractereChave, 
+    noz->frequenciaChar);
+    imprimeOrdem(noz->dir);
 }

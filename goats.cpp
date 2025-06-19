@@ -190,8 +190,8 @@ No* Heap::juntaNos() {
         frequencia = (no1->frequenciaChar) + (no2->frequenciaChar);
 
         No *novo = new No(0, frequencia);
-        novo->dir = no1;
-        novo->esq = no2;
+        novo->esq = no1;
+        novo->dir = no2;
             
         insere(novo);
     }

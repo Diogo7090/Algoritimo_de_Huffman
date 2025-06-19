@@ -8,17 +8,15 @@
 * Diego Padilha Rupert
 *
 */
-#include<iostream>
+
 #include <cstdio>
 #include <vector>
-#include <string>
 
 using namespace std;
 
 class No;
 class Frequencia;
 class Heap;
-class tabelaCodigo;
 
 void opcaoCompactar(FILE *arquivoPtr);
 
@@ -66,7 +64,6 @@ class No {
 };
 
 class Heap {
-    friend class tabelaCodigo;
     private:
         vector <No*> lista;
         int pai(int posicao);
@@ -90,23 +87,6 @@ class Heap {
         No *raizArvore = nullptr;
 };
 
-typedef struct {
-    string codigoChar = "vazio";
-}codigoCaractere;
-
-class tabelaCodigo {
-    private:
-        vector <char> vetorArmazenaCodigoCompacto;
-        
-        //void constroiTabelaDeCodigos(No *no);
-    public:
-        No *raizArvore;
-        vector <codigoCaractere> vetorTabelaDeCodigo{256};
-        tabelaCodigo(No *raiz): raizArvore(raiz){}
-        void constroiTabelaDeCodigos(No *no);
-        void imprimeTabelaDeCodigo();
-};
-
 int main() {
     FILE *arquivo = fopen("../teste.txt", "r");
     if (arquivo == nullptr) {
@@ -122,15 +102,13 @@ int main() {
 
 void opcaoCompactar(FILE *arquivoPtr) {
     Frequencia contadorFreq(arquivoPtr);
-    //contadorFreq.escreveTabela();
+    contadorFreq.escreveTabela();
     vector <No*> vetor = contadorFreq.criarVetorFinal();
     Heap heap(vetor);
     heap.imprimeHeap();
     heap.juntaNos();
-    //heap.imprimeOrdem(heap.raizArvore);
-    tabelaCodigo arvoreHuffman(heap.raizArvore);
-    arvoreHuffman.constroiTabelaDeCodigos(arvoreHuffman.raizArvore);
-    arvoreHuffman.imprimeTabelaDeCodigo();
+    heap.imprimeHeap();
+    heap.imprimeOrdem(heap.raizArvore);
 }
 
 void Frequencia::contadorDeFrequencia() {
@@ -154,34 +132,32 @@ int Heap::pai(int posicao) {
     return (posicao - 1)/2;
 }
 int Heap::filhoEsquerdo(int posicao) {
-    return (2 * posicao + 1);
+    return (2 * posicao + 2);
 }
 int Heap::filhoDireito(int posicao) {
-    return (2 * posicao + 2);
+    return (2 * posicao + 1);
 }
 void Heap::sobe(int posicao) {
     while (lista[pai(posicao)]->frequenciaChar > (lista[posicao])->frequenciaChar) {
-        //printf("Chegou aqui");
+        printf("Chegou aqui");
         troca(posicao, pai(posicao));
 
         posicao = pai(posicao);
+        sobe(posicao);
     }
 }
 void Heap::desce(int posicao) {
     int menor, esq, dir, tam;
     menor = posicao;
-    esq = filhoEsquerdo(posicao);
-    dir = filhoDireito(posicao);
+    esq = filhoDireito(posicao);
+    dir = filhoEsquerdo(posicao);
     tam = lista.size();
 
-    if (esq < tam && lista[posicao]->frequenciaChar > lista[esq]->frequenciaChar) {
-        menor = esq;
+    if (dir < tam && lista[posicao] > lista[dir]) {
+        menor = filhoDireito(posicao);
     }
-    else {
-        menor = posicao;
-    }
-    if (dir < tam && lista[menor]->frequenciaChar > lista[dir]->frequenciaChar) {
-        menor = dir;
+    if (esq < tam && lista[posicao] > lista[esq]) {
+        menor = filhoDireito(posicao);
     }
 
     if (menor != posicao) {
@@ -234,16 +210,11 @@ No* Heap::extraiMinimo() {
 }
 
 Heap::Heap(vector <No*> listaTabela) {
-    
     lista = listaTabela;
-    
-    int meio = ((lista.size()));
+    int meio = ((lista.size())/2);
     for (int i = (meio); i > 0; i--) {
         desce(i);
     }
-    // printf("Imprime HEAP DENTRO\n");
-    // imprimeHeap();
-    // printf("####################");
 }
 
 vector <No*> Frequencia::criarVetorFinal() {
@@ -277,33 +248,4 @@ void Heap::imprimeOrdem(No *noz) {
     printf("\nCaractere -> %c, frequencia->%d\n\n", noz->caractereChave, 
     noz->frequenciaChar);
     imprimeOrdem(noz->dir);
-}
-
-/*
-***********************************
-**********ARVORE HUFFMAN***********
-***********************************
-*/
-
-void tabelaCodigo::constroiTabelaDeCodigos(No *no) {
-    if (no->esq == nullptr && no->dir == nullptr) {
-        string temporaria (vetorArmazenaCodigoCompacto.begin(), vetorArmazenaCodigoCompacto.end());
-        vetorTabelaDeCodigo[no->caractereChave].codigoChar = temporaria;
-        vetorArmazenaCodigoCompacto.pop_back();
-
-        return;
-    }
-    vetorArmazenaCodigoCompacto.push_back('0');
-    constroiTabelaDeCodigos(no->esq);
-    vetorArmazenaCodigoCompacto.push_back('1');
-    constroiTabelaDeCodigos(no->dir);
-}
-
-void tabelaCodigo::imprimeTabelaDeCodigo() {
-    for(int i = 0; i < 256; i++) {
-        if (vetorTabelaDeCodigo[i].codigoChar != "vazio"){
-            printf("caractere ->%c | ", i);
-            std::cout << vetorTabelaDeCodigo[i].codigoChar <<'\n';
-        }
-    }
 }

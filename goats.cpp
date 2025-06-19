@@ -78,16 +78,15 @@ class Heap {
 
     public:
         Heap();
-        ~Heap() {
-            lista[0] = nullptr;
-        }
+        ~Heap();
         No *juntaNos();
         void insere(No *noCaractere);
         No *extraiMinimo();
         Heap(vector <No*> listaTabela);
         void imprimeHeap();
-        void imprimeOrdem(No *noz);
+        void imprimePreOrdem(No *noz);
         No *raizArvore = nullptr;
+        void limpaArvore(No *no);
 };
 
 typedef struct {
@@ -127,7 +126,7 @@ void opcaoCompactar(FILE *arquivoPtr) {
     Heap heap(vetor);
     heap.imprimeHeap();
     heap.juntaNos();
-    //heap.imprimeOrdem(heap.raizArvore);
+    //heap.imprimePreOrdem(heap.raizArvore);
     tabelaCodigo arvoreHuffman(heap.raizArvore);
     arvoreHuffman.constroiTabelaDeCodigos(arvoreHuffman.raizArvore);
     arvoreHuffman.imprimeTabelaDeCodigo();
@@ -149,57 +148,81 @@ void Frequencia::escreveTabela() {
         printf("[%d] -> %d\n", i, tabelaDireta[i]);
     }
 }
+
+Heap::~Heap() {
+    limpaArvore(raizArvore);
+}
+
+void Heap::limpaArvore(No *no) {
+    if (no == nullptr) {
+        return;
+    }
+    limpaArvore(no->esq);
+    limpaArvore(no->dir);
+    delete no;
+}
 //2i+1 = fe -> fe-1/2
 int Heap::pai(int posicao) {
+    //printf("|PAI retornando: %d|\n", (posicao - 1)/2);
     return (posicao - 1)/2;
 }
 int Heap::filhoEsquerdo(int posicao) {
+    //printf("|FE retornando: %d|\n", (2 * posicao + 1));
     return (2 * posicao + 1);
 }
 int Heap::filhoDireito(int posicao) {
+    //printf("|FD retornando: %d|\n", (2 * posicao + 2));
     return (2 * posicao + 2);
 }
 void Heap::sobe(int posicao) {
+    //printf("-----------%d###########\n", (lista[posicao])->frequenciaChar);
     while (lista[pai(posicao)]->frequenciaChar > (lista[posicao])->frequenciaChar) {
         //printf("Chegou aqui");
         troca(posicao, pai(posicao));
-
+        //printf("sobe posicao %d \n", posicao);
         posicao = pai(posicao);
     }
+    //imprimeHeap();
 }
 void Heap::desce(int posicao) {
     int menor, esq, dir, tam;
     menor = posicao;
     esq = filhoEsquerdo(posicao);
     dir = filhoDireito(posicao);
-    tam = lista.size();
-
+    tam = (int)lista.size();
+    //printf("-----------%d###########\n", (lista[posicao])->frequenciaChar);
     if (esq < tam && lista[posicao]->frequenciaChar > lista[esq]->frequenciaChar) {
+        //printf("|%d e esq %d|\n", posicao, esq);
         menor = esq;
     }
     else {
         menor = posicao;
     }
     if (dir < tam && lista[menor]->frequenciaChar > lista[dir]->frequenciaChar) {
+        //printf("|%d e esq %d|\n", dir, menor);
         menor = dir;
     }
 
     if (menor != posicao) {
+        //printf("Vai trocar\n");
         troca(posicao, menor);
         desce(menor);
     }
 }
 
 void Heap::troca(int i, int j) {
+    //printf("i:%p e j:%p\n", lista[i], lista[j]);
     No *aux = lista[i];
     lista[i] = lista[j];
     lista[j] = aux;
+    //printf("i:%p e j:%p\n", lista[i], lista[j]);
 }
 
 void Heap::insere(No *noCaractere){
     lista.push_back(noCaractere);
-    int posicao = (lista.size()) - 1;
+    int posicao = (int) (lista.size()) - 1;
     sobe(posicao);
+    printf("subiu\n");
 }
 
 No* Heap::juntaNos() {
@@ -208,6 +231,8 @@ No* Heap::juntaNos() {
     int frequencia;
 
     while ((lista.size()) > 1) {
+        //printf("|Tamanho heap %zu|\n",(lista.size()) );
+        //imprimeHeap();
         no1 = extraiMinimo();
         no2 = extraiMinimo();
 
@@ -236,14 +261,13 @@ No* Heap::extraiMinimo() {
 Heap::Heap(vector <No*> listaTabela) {
     
     lista = listaTabela;
-    
-    int meio = ((lista.size()));
-    for (int i = (meio); i > 0; i--) {
+    int meio = (int)(lista.size())/2;
+    for (int i = (meio); i >= 0; i--) {
         desce(i);
     }
     // printf("Imprime HEAP DENTRO\n");
     // imprimeHeap();
-    // printf("####################");
+    // printf("####################\n");
 }
 
 vector <No*> Frequencia::criarVetorFinal() {
@@ -258,7 +282,7 @@ vector <No*> Frequencia::criarVetorFinal() {
 }
 
 void Heap::imprimeHeap() {
-    int tam = lista.size();
+    int tam =(int) lista.size();
 
     for (int i = 0; i < tam; i++) {
         printf("Caractere -> %c, frequencia->%d\n\n", (lista[i])->caractereChave, 
@@ -266,17 +290,17 @@ void Heap::imprimeHeap() {
     }
 }
 
-void Heap::imprimeOrdem(No *noz) {
+void Heap::imprimePreOrdem(No *noz) {
     //printf("\n----%d", noz->frequenciaChar);
     // printf("Caractere -> %c, frequencia->%d\n\n", noz->caractereChave, 
     // noz->frequenciaChar);
     if (noz == nullptr) {
         return;
     }
-    imprimeOrdem(noz->esq);
+    imprimePreOrdem(noz->esq);
     printf("\nCaractere -> %c, frequencia->%d\n\n", noz->caractereChave, 
     noz->frequenciaChar);
-    imprimeOrdem(noz->dir);
+    imprimePreOrdem(noz->dir);
 }
 
 /*
@@ -284,7 +308,9 @@ void Heap::imprimeOrdem(No *noz) {
 **********ARVORE HUFFMAN***********
 ***********************************
 */
-
+/*
+01
+*/
 void tabelaCodigo::constroiTabelaDeCodigos(No *no) {
     if (no->esq == nullptr && no->dir == nullptr) {
         string temporaria (vetorArmazenaCodigoCompacto.begin(), vetorArmazenaCodigoCompacto.end());
@@ -297,6 +323,7 @@ void tabelaCodigo::constroiTabelaDeCodigos(No *no) {
     constroiTabelaDeCodigos(no->esq);
     vetorArmazenaCodigoCompacto.push_back('1');
     constroiTabelaDeCodigos(no->dir);
+    vetorArmazenaCodigoCompacto.pop_back();
 }
 
 void tabelaCodigo::imprimeTabelaDeCodigo() {

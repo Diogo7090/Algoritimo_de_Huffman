@@ -89,10 +89,6 @@ class Heap {
         void limpaArvore(No *no);
 };
 
-typedef struct {
-    string codigoChar = "vazio";
-}codigoCaractere;
-
 class tabelaCodigo {
     private:
         vector <char> vetorArmazenaCodigoCompacto;
@@ -100,7 +96,7 @@ class tabelaCodigo {
         //void constroiTabelaDeCodigos(No *no);
     public:
         No *raizArvore;
-        vector <codigoCaractere> vetorTabelaDeCodigo{256};
+        vector <string> vetorTabelaDeCodigo{256, "vazio"};
         tabelaCodigo(No *raiz): raizArvore(raiz){}
         void constroiTabelaDeCodigos(No *no);
         void imprimeTabelaDeCodigo();
@@ -118,13 +114,12 @@ int main() {
     return 0;
 }
 
-
 void opcaoCompactar(FILE *arquivoPtr) {
     Frequencia contadorFreq(arquivoPtr);
     //contadorFreq.escreveTabela();
     vector <No*> vetor = contadorFreq.criarVetorFinal();
     Heap heap(vetor);
-    heap.imprimeHeap();
+    //heap.imprimeHeap();
     heap.juntaNos();
     //heap.imprimePreOrdem(heap.raizArvore);
     tabelaCodigo arvoreHuffman(heap.raizArvore);
@@ -132,6 +127,16 @@ void opcaoCompactar(FILE *arquivoPtr) {
     arvoreHuffman.imprimeTabelaDeCodigo();
 }
 
+/*
+***********************************
+********** FREQUENCIA *************
+***********************************
+*/
+
+/*
+    Le cada caractere do arquivo e soma a frequencia, o vetor de
+    256 posicoes usa caractere em ASCII como indice
+*/
 void Frequencia::contadorDeFrequencia() {
     unsigned char armazena;
     
@@ -149,6 +154,27 @@ void Frequencia::escreveTabela() {
     }
 }
 
+/*
+    A partir tabela de frequencia gera um vetor
+    com somente os caracteres que apareceram no arquivo
+*/
+vector <No*> Frequencia::criarVetorFinal() {
+    for (int i = 0; i < 256; i++) {
+        if (tabelaDireta[i] != 0) {
+            No *novo = new No(i, tabelaDireta[i]);
+            vetorFinal.push_back(novo);
+        }
+    }
+
+    return vetorFinal;
+}
+
+/*
+***********************************
+************** HEAP ***************
+***********************************
+*/
+
 Heap::~Heap() {
     limpaArvore(raizArvore);
 }
@@ -161,7 +187,7 @@ void Heap::limpaArvore(No *no) {
     limpaArvore(no->dir);
     delete no;
 }
-//2i+1 = fe -> fe-1/2
+
 int Heap::pai(int posicao) {
     //printf("|PAI retornando: %d|\n", (posicao - 1)/2);
     return (posicao - 1)/2;
@@ -222,9 +248,14 @@ void Heap::insere(No *noCaractere){
     lista.push_back(noCaractere);
     int posicao = (int) (lista.size()) - 1;
     sobe(posicao);
-    printf("subiu\n");
+    //printf("subiu\n");
 }
 
+/*
+    A partir da min-heap, constroi a arvore de huffman
+    para posteriormente gerar os codigos de Huffman para
+    cada caractere
+*/
 No* Heap::juntaNos() {
     No *no1 = nullptr;
     No *no2 = nullptr;
@@ -270,16 +301,7 @@ Heap::Heap(vector <No*> listaTabela) {
     // printf("####################\n");
 }
 
-vector <No*> Frequencia::criarVetorFinal() {
-    for (int i = 0; i < 256; i++) {
-        if (tabelaDireta[i] != 0) {
-            No *novo = new No(i, tabelaDireta[i]);
-            vetorFinal.push_back(novo);
-        }
-    }
 
-    return vetorFinal;
-}
 
 void Heap::imprimeHeap() {
     int tam =(int) lista.size();
@@ -308,13 +330,16 @@ void Heap::imprimePreOrdem(No *noz) {
 **********ARVORE HUFFMAN***********
 ***********************************
 */
+
 /*
-01
+    Pela percurso pre-ordem gera os codigos de Huffman de cada
+    caractere, sendo 0 para subarvore esquerda e 1 para direita,
+    quando encontra caractere(folha) armazena no vetor de string o código
 */
 void tabelaCodigo::constroiTabelaDeCodigos(No *no) {
     if (no->esq == nullptr && no->dir == nullptr) {
         string temporaria (vetorArmazenaCodigoCompacto.begin(), vetorArmazenaCodigoCompacto.end());
-        vetorTabelaDeCodigo[no->caractereChave].codigoChar = temporaria;
+        vetorTabelaDeCodigo[no->caractereChave] = temporaria;
         vetorArmazenaCodigoCompacto.pop_back();
 
         return;
@@ -328,9 +353,9 @@ void tabelaCodigo::constroiTabelaDeCodigos(No *no) {
 
 void tabelaCodigo::imprimeTabelaDeCodigo() {
     for(int i = 0; i < 256; i++) {
-        if (vetorTabelaDeCodigo[i].codigoChar != "vazio"){
+        if (vetorTabelaDeCodigo[i] != "vazio"){
             printf("caractere ->%c | ", i);
-            std::cout << vetorTabelaDeCodigo[i].codigoChar <<'\n';
+            std::cout << vetorTabelaDeCodigo[i] <<'\n';
         }
     }
 }

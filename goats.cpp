@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <vector>
 #include <string>
+#include <cstdint>
 
 using namespace std;
 
@@ -19,8 +20,13 @@ class No;
 class Frequencia;
 class Heap;
 class tabelaCodigo;
+class arquivoCompactado;
+class BufferBits;
+class BufferBitsLeitura;
+class BufferBitsEscrita;
 
 void opcaoCompactar(FILE *arquivoPtr);
+void escrever_binario(uint8_t numero);
 
 class Frequencia {
     private:
@@ -102,6 +108,63 @@ class tabelaCodigo {
         void imprimeTabelaDeCodigo();
 };
 
+class arquivoCompactado {
+    private:
+        FILE *arquivoParaLeitura;
+        uint16_t tamanhoAlfabeto;
+        vector <unsigned char> letrasDoAlfabeto;
+        vector <char> bitPercusoPreOrdem;
+        vector <int> bitsUltimoByte;
+        vector <string> vetorTabelaDeCodigo {256, "vazio"};
+        No *raizArvore;
+
+        BufferBits *buffer;
+        BufferBitsLeitura *leitura;
+        BufferBitsEscrita *escrita;
+
+    public:
+        arquivoCompactado(FILE *arquivoLeitura, vector <string> vetorTabCodigo);
+        void geraCabecalho();
+        void geraBitPercursoPreOrdem(No *no);
+        void codifica();
+        void contaFolhas(No *no);
+};
+
+
+class BufferBits {
+protected:
+  FILE *arquivo;  
+  uint8_t byte;   
+  uint8_t n;     
+
+public:
+  BufferBits(FILE *arquivo);  
+  uint8_t ocupados();         
+  uint8_t livres();           
+};
+
+// Buffer de leitura de bits
+class BufferBitsLeitura : public BufferBits {
+public:
+  BufferBitsLeitura(FILE *arquivo); 
+  uint8_t le_bit();                 
+};
+
+// Buffer de escrita de bits
+class BufferBitsEscrita : public BufferBits {
+public:
+  BufferBitsEscrita(FILE *arquivo);  
+  void escreve_bit(uint8_t bit);    
+  void descarrega();                
+};
+
+
+int DEBUG_BITS = 1;
+int VALORES[8]={128,64,32,16,8,4,2,1};
+/*
+#####################################
+#####################################
+*/
 int main() {
     FILE *arquivo = fopen("../teste.txt", "r");
     if (arquivo == nullptr) {
@@ -125,6 +188,7 @@ void opcaoCompactar(FILE *arquivoPtr) {
     tabelaCodigo arvoreHuffman(heap.raizArvore);
     arvoreHuffman.constroiTabelaDeCodigos(arvoreHuffman.raizArvore);
     arvoreHuffman.imprimeTabelaDeCodigo();
+    arquivoCompactado compactando(arquivoPtr, arvoreHuffman.vetorTabelaDeCodigo);
 }
 
 /*
@@ -296,9 +360,6 @@ Heap::Heap(vector <No*> listaTabela) {
     for (int i = (meio); i >= 0; i--) {
         desce(i);
     }
-    // printf("Imprime HEAP DENTRO\n");
-    // imprimeHeap();
-    // printf("####################\n");
 }
 
 
@@ -358,4 +419,136 @@ void tabelaCodigo::imprimeTabelaDeCodigo() {
             std::cout << vetorTabelaDeCodigo[i] <<'\n';
         }
     }
+}
+
+/*
+************************************
+******** COMPACTA ARQUIVO **********
+************************************
+*/
+
+arquivoCompactado::arquivoCompactado(FILE *arquivoLeitura, vector <string> vetorTabCodigo):
+arquivoParaLeitura(arquivoLeitura), vetorTabelaDeCodigo(vetorTabCodigo){
+
+}
+
+void arquivoCompactado::geraCabecalho() {
+
+}
+void arquivoCompactado::geraBitPercursoPreOrdem(No *no) {
+    if (no == nullptr) {
+        return;
+    }
+
+    bitPercusoPreOrdem.push_back('0');
+    geraBitPercursoPreOrdem(no->esq);
+    bitPercusoPreOrdem.push_back('1');
+    geraBitPercursoPreOrdem(no->dir);
+}
+void arquivoCompactado::codifica() {
+
+}
+void arquivoCompactado::contaFolhas(No *no) {
+    if (no->esq == nullptr && no->dir == nullptr) {
+        tamanhoAlfabeto++;
+        letrasDoAlfabeto.push_back(no->caractereChave);
+        return;
+    }
+    contaFolhas(no->esq);
+    contaFolhas(no->dir);
+}
+
+/*
+******************************
+*********** BITS *************
+******************************
+*/
+
+
+void escrever_binario(uint8_t numero)
+{
+  for (int i = 128; i > 0; i >>= 1)
+    printf("%c", numero & i ? '1' : '0');
+}
+
+BufferBits::BufferBits(FILE *arquivo) :
+  arquivo(arquivo),
+  byte(0),
+  n(0)
+{ }
+
+uint8_t BufferBits::ocupados()
+{
+  return n;
+}
+
+uint8_t BufferBits::livres()
+{
+  return 8 - n;
+}
+
+BufferBitsLeitura::BufferBitsLeitura(FILE *f) :
+  BufferBits(f)
+{ }
+
+uint8_t BufferBitsLeitura::le_bit()
+{
+
+  void* aux=&byte;
+  if (n == 0){
+    int test=fread(aux, 1, 1, arquivo);
+    if(test!=1){
+    return 2;
+    }
+    n = 8;
+}
+
+
+
+
+  if (DEBUG_BITS) printf("n: %d, byte: %d (", n, byte);
+  if (DEBUG_BITS) escrever_binario(byte);
+
+  
+  uint8_t bit;
+  bit = (VALORES[n-1] & byte) ? 1 : 0;
+  n-=1;
+
+  if (DEBUG_BITS) printf(") --> %d(", byte);
+  if (DEBUG_BITS) escrever_binario(byte);
+  if (DEBUG_BITS) printf("), bit: %d\n", bit);
+
+  return bit;
+}
+
+BufferBitsEscrita::BufferBitsEscrita(FILE *f) :
+  BufferBits(f)
+{ }
+
+void BufferBitsEscrita::escreve_bit(uint8_t bit)
+{
+  if (DEBUG_BITS) printf("bit: %d, n: %d, byte: %d (", bit, n, byte);
+  if (DEBUG_BITS) escrever_binario(byte);
+
+  
+  byte = byte | (VALORES[n-1]*bit);
+  n+=1;
+
+  if (DEBUG_BITS) printf(") --> %d(", byte);
+  if (DEBUG_BITS) escrever_binario(byte);
+  if (DEBUG_BITS) printf(")\n");
+
+  if (n == 8)
+    descarrega();
+}
+
+void BufferBitsEscrita::descarrega()
+{
+    if(byte>=1){
+        void *aux=&byte;
+        fwrite(aux,1,1,arquivo);
+        byte=0;
+        n=0;
+        }
+
 }

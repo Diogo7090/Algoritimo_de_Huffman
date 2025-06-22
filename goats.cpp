@@ -24,19 +24,10 @@ class arquivoCompactado;
 class BufferBits;
 class BufferBitsLeitura;
 class BufferBitsEscrita;
-
-
-/*DEBUGA*/
-
-void escreve_bit(uint8_t bit) {
-    //printf("COMO ISSO ESTA ALTERANDO\n");
-    printf("bit: %d (", bit);
-    printf(")\n");
-}
-
-////////////////////////
+class DescompactaArquivo;
 
 void opcaoCompactar(FILE *arquivoPtr);
+void opcaoDescompactar(FILE *arquivoCompactado);
 void escrever_binario(uint8_t numero);
 
 class Frequencia {
@@ -61,6 +52,7 @@ class Frequencia {
 class No {
     friend class Heap;
     friend class Frequencia;
+    friend class DescompactaArquivo;
     public:
         No *esq;
         No *dir;
@@ -174,6 +166,25 @@ public:
   void descarrega();                
 };
 
+class DescompactaArquivo {
+    private: 
+        No *raizArvoreD;
+        FILE *fileCompacto;
+        FILE *fileSaida;
+        int tamanhoAlfabetoD;
+        int sobraUltimoByte;
+        vector <unsigned char> vetorCharNoArquivoCompacto;
+        int charEncontradosNaPreOrdem;
+        BufferBitsLeitura *leitor;
+
+    public:
+        DescompactaArquivo(FILE *arquivo);
+        ~DescompactaArquivo();
+        No* reconstroiArvorePreOrdem(No *no);
+        void opcaoDescompacta();
+        void leCabecalho();
+};      
+
 
 int DEBUG_BITS = 1;
 int VALORES[8]={128,64,32,16,8,4,2,1};
@@ -182,14 +193,26 @@ int VALORES[8]={128,64,32,16,8,4,2,1};
 #####################################
 */
 int main() {
-    FILE *arquivo = fopen("teste.txt", "r");
+    // FILE *arquivo = fopen("../teste.txt", "r");
+    // if (arquivo == nullptr) {
+    //     printf("Erro ao abrir arquivo\n");
+
+    // } else {
+    //     opcaoCompactar(arquivo);
+    //     fclose(arquivo);
+    // }
+
+    FILE *arquivo = fopen("../saida.huff", "rb");
     if (arquivo == nullptr) {
         printf("Erro ao abrir arquivo\n");
+
+    } else {
+        opcaoDescompactar(arquivo);
+        printf("Descompactar\n");
+        fclose(arquivo);
     }
-    opcaoCompactar(arquivo);
+    printf("Concluido\n");
 
-
-    fclose(arquivo);
     return 0;
 }
 
@@ -197,15 +220,26 @@ void opcaoCompactar(FILE *arquivoPtr) {
     Frequencia contadorFreq(arquivoPtr);
     //contadorFreq.escreveTabela();
     vector <No*> vetor = contadorFreq.criarVetorFinal();
+    int tam = (int) vetor.size();
+    if (tam == 0) {
+        return;
+    }
     Heap heap(vetor);
     //heap.imprimeHeap();
     heap.juntaNos();
     //heap.imprimePreOrdem(heap.raizArvore);
     tabelaCodigo arvoreHuffman(heap.raizArvore);
     arvoreHuffman.constroiTabelaDeCodigos(arvoreHuffman.raizArvore);
-    arvoreHuffman.imprimeTabelaDeCodigo();
+    //arvoreHuffman.imprimeTabelaDeCodigo();
     arquivoCompactado compactando(arquivoPtr, arvoreHuffman.vetorTabelaDeCodigo, arvoreHuffman.raizArvore);
     compactando.opcaoCompactaTudo();
+}
+
+void opcaoDescompactar(FILE *arquivoCompactado) {
+    DescompactaArquivo descompacta(arquivoCompactado);
+    printf("-----\n");
+    descompacta.opcaoDescompacta();
+    printf("-----\n");
 }
 
 /*
@@ -224,7 +258,6 @@ void Frequencia::contadorDeFrequencia() {
     fread(&armazena, 1, 1, arquivoLeitura);
     while (!feof(arquivoLeitura)) {
         tabelaDireta[armazena]+=1;
-        //printf("%d ", armazena);
         fread(&armazena, 1, 1, arquivoLeitura);
     }
 }
@@ -270,26 +303,21 @@ void Heap::limpaArvore(No *no) {
 }
 
 int Heap::pai(int posicao) {
-    //printf("|PAI retornando: %d|\n", (posicao - 1)/2);
     return (posicao - 1)/2;
 }
 int Heap::filhoEsquerdo(int posicao) {
-    //printf("|FE retornando: %d|\n", (2 * posicao + 1));
     return (2 * posicao + 1);
 }
 int Heap::filhoDireito(int posicao) {
-    //printf("|FD retornando: %d|\n", (2 * posicao + 2));
     return (2 * posicao + 2);
 }
 void Heap::sobe(int posicao) {
-    //printf("-----------%d###########\n", (lista[posicao])->frequenciaChar);
+
     while (lista[pai(posicao)]->frequenciaChar > (lista[posicao])->frequenciaChar) {
-        //printf("Chegou aqui");
         troca(posicao, pai(posicao));
-        //printf("sobe posicao %d \n", posicao);
+
         posicao = pai(posicao);
     }
-    //imprimeHeap();
 }
 void Heap::desce(int posicao) {
     int menor, esq, dir, tam;
@@ -297,39 +325,32 @@ void Heap::desce(int posicao) {
     esq = filhoEsquerdo(posicao);
     dir = filhoDireito(posicao);
     tam = (int)lista.size();
-    //printf("-----------%d###########\n", (lista[posicao])->frequenciaChar);
     if (esq < tam && lista[posicao]->frequenciaChar > lista[esq]->frequenciaChar) {
-        //printf("|%d e esq %d|\n", posicao, esq);
         menor = esq;
     }
     else {
         menor = posicao;
     }
     if (dir < tam && lista[menor]->frequenciaChar > lista[dir]->frequenciaChar) {
-        //printf("|%d e esq %d|\n", dir, menor);
         menor = dir;
     }
 
     if (menor != posicao) {
-        //printf("Vai trocar\n");
         troca(posicao, menor);
         desce(menor);
     }
 }
 
 void Heap::troca(int i, int j) {
-    //printf("i:%p e j:%p\n", lista[i], lista[j]);
     No *aux = lista[i];
     lista[i] = lista[j];
     lista[j] = aux;
-    //printf("i:%p e j:%p\n", lista[i], lista[j]);
 }
 
 void Heap::insere(No *noCaractere){
     lista.push_back(noCaractere);
     int posicao = (int) (lista.size()) - 1;
     sobe(posicao);
-    //printf("subiu\n");
 }
 
 /*
@@ -343,8 +364,6 @@ No* Heap::juntaNos() {
     int frequencia;
 
     while ((lista.size()) > 1) {
-        //printf("|Tamanho heap %zu|\n",(lista.size()) );
-        //imprimeHeap();
         no1 = extraiMinimo();
         no2 = extraiMinimo();
 
@@ -361,13 +380,15 @@ No* Heap::juntaNos() {
 }
 
 No* Heap::extraiMinimo() {
-    No *armazena = lista[0];
-    troca(0, (lista.size()) - 1);
-
-    lista.pop_back();
-    desce(0);
-
-    return armazena;
+    if (lista.size() != 0) {
+        No *armazena = lista[0];
+        troca(0, (lista.size()) - 1);
+        lista.pop_back();
+        desce(0);
+    
+        return armazena;
+    }
+    return nullptr;
 }
 
 Heap::Heap(vector <No*> listaTabela) {
@@ -391,15 +412,13 @@ void Heap::imprimeHeap() {
 }
 
 void Heap::imprimePreOrdem(No *noz) {
-    ////printf("\n----%d", noz->frequenciaChar);
-    // printf("Caractere -> %c, frequencia->%d\n\n", noz->caractereChave, 
-    // noz->frequenciaChar);
+
     if (noz == nullptr) {
         return;
     }
-    imprimePreOrdem(noz->esq);
     printf("\nCaractere -> %c, frequencia->%d\n\n", noz->caractereChave, 
     noz->frequenciaChar);
+    imprimePreOrdem(noz->esq);
     imprimePreOrdem(noz->dir);
 }
 
@@ -418,15 +437,18 @@ void tabelaCodigo::constroiTabelaDeCodigos(No *no) {
     if (no->esq == nullptr && no->dir == nullptr) {
         string temporaria (vetorArmazenaCodigoCompacto.begin(), vetorArmazenaCodigoCompacto.end());
         vetorTabelaDeCodigo[no->caractereChave] = temporaria;
-        vetorArmazenaCodigoCompacto.pop_back();
-
+        if (vetorArmazenaCodigoCompacto.size() != 0) {
+            vetorArmazenaCodigoCompacto.pop_back();
+        }
         return;
     }
     vetorArmazenaCodigoCompacto.push_back('0');
     constroiTabelaDeCodigos(no->esq);
     vetorArmazenaCodigoCompacto.push_back('1');
     constroiTabelaDeCodigos(no->dir);
-    vetorArmazenaCodigoCompacto.pop_back();
+     if (vetorArmazenaCodigoCompacto.size() != 0) {
+        vetorArmazenaCodigoCompacto.pop_back();
+     }
 }
 
 void tabelaCodigo::imprimeTabelaDeCodigo() {
@@ -452,7 +474,6 @@ arquivoParaLeitura(arquivoLeitura), vetorTabelaDeCodigo(vetorTabCodigo), raizArv
     if (arquivoParaEscrita == nullptr) {
         printf("Erro para abrir arquivo de saida\n");
     }
-    printf("Criou arquivo\n");
     escrita = new BufferBitsEscrita(arquivoParaEscrita);
     contaFolhas(raizArvore);
 }
@@ -469,9 +490,8 @@ void arquivoCompactado::opcaoCompactaTudo() {
 }
 
 void arquivoCompactado::escreve8Bits(uint8_t byteInteiro) {
-    printf("Valor entrado\n");
-    escrever_binario(byteInteiro);
-    printf("&&&&&&&&&&\n");
+    // escrever_binario(byteInteiro);
+    // printf("\n");
     uint8_t bitWrite;
     for (int i = 128; i > 0 ; i >>= 1) {
         // 0100 0001
@@ -482,12 +502,9 @@ void arquivoCompactado::escreve8Bits(uint8_t byteInteiro) {
         } else {
             bitWrite = 0;
         }
-        //printf("\nValor saindo de write %d\n", bitWrite);
-        //escreve_bit(bitWrite);
+
         escrita->escreve_bit(bitWrite);
-        //printf("\nValor de n no primeiro%d\n\n&&&&", (escrita->ocupados()));
     }
-    printf("\n\n\n");
 }
 // 1000 0000 0000 0100
 // 
@@ -496,22 +513,20 @@ void arquivoCompactado::geraCabecalho() {
     uint8_t primeiraParte = (uint8_t)(tamanhoAlfabeto>>8);
     escreve8Bits(segundaParte);
     escreve8Bits(primeiraParte);
-    // escrever_binario(segundaParte);
-    // escrever_binario(primeiraParte);
     //Deixa espaço para quantidade de bits que sobra no ultimo
     escreve8Bits(0);
-    //printf("Chegou aqui\n");
-    int tam = tamanhoAlfabeto;
-    //printf("Tamanho alfabeto %d\n", tam);
+    int tam = letrasDoAlfabeto.size();
 
     for (int i = 0; i < tam; i++) {
         //printf("#|%c|#\n",(char) letrasDoAlfabeto[i]);
         escreve8Bits((uint8_t) letrasDoAlfabeto[i]);
     }
 
-    tam = letrasDoAlfabeto.size();
+    tam = (int) bitPercusoPreOrdem.size();
+
     for (int i = 0; i < tam; i++) {
-        escrita->escreve_bit((uint8_t)(letrasDoAlfabeto[i]));
+        uint8_t bit = (int)bitPercusoPreOrdem[i];
+        escrita->escreve_bit(bit);
     }
 }
 
@@ -523,36 +538,26 @@ void arquivoCompactado::editaQuantidadeUltimoBit(uint8_t ultimoBit) {
 
 void arquivoCompactado::traduzParaHuffman() {
     char armazena;
-    int tam = (int) bitPercusoPreOrdem.size();
 
-    for (int i = 0; i < tam; i++) {
-        uint8_t bit = (int)bitPercusoPreOrdem[i];
-        escrita->escreve_bit(bit);
-        //printf("Pre-ordem %d---\n", bit);
-    }
     fseek(arquivoParaLeitura, 0, SEEK_SET);
     fread(&armazena, 1, 1, arquivoParaLeitura);
-    // cout<<"funciona"<<endl;
-    printf("ENTRANDO NO TEXTO EM SI %c\n", armazena);
 
     while (!feof(arquivoParaLeitura)) {
         string bitParaEscrever = vetorTabelaDeCodigo[armazena];
-        std::cout << "VOLOR " <<bitParaEscrever << endl;
         int tam = (vetorTabelaDeCodigo[armazena]).size();
-        // printf("----\n");
-        // for (int i = 0; i < tam; i++){
-        //     printf("%c ", bitParaEscrever[i]);
-        // }
-        // cout<<"\nteste\n"<<endl;
         for (int i = 0; i < tam; i++){
-            escrita->escreve_bit(bitParaEscrever[i]);
-            //printf("%c ", bitParaEscrever[i]);
+            uint8_t valorParaEscrita;
+            if (bitParaEscrever[i] == '1') {
+                valorParaEscrita = (uint8_t)1;
+            } else {
+                valorParaEscrita = (uint8_t)0;
+            }
+            escrita->escreve_bit(valorParaEscrita);
         }
         fread(&armazena, 1, 1, arquivoParaLeitura);
     }
 
     int n = escrita->ocupados();
-    // printf("O VALOR DE N %d\n", n);
     if (n != 0) {
         editaQuantidadeUltimoBit((uint8_t)(8 - n));
         fseek(arquivoParaEscrita, 0, SEEK_END);
@@ -560,14 +565,16 @@ void arquivoCompactado::traduzParaHuffman() {
     }
 }
 void arquivoCompactado::geraBitPercursoPreOrdem(No *no) {
-    if (no == nullptr) {
-        bitPercusoPreOrdem.pop_back();
+    if (no->esq == nullptr && no->dir == nullptr) {
+        bitPercusoPreOrdem.push_back(1);
         return;
+    } else {
+        bitPercusoPreOrdem.push_back(0);
     }
 
-    bitPercusoPreOrdem.push_back(0);
+    //bitPercusoPreOrdem.push_back(0);
     geraBitPercursoPreOrdem(no->esq);
-    bitPercusoPreOrdem.push_back(1);
+    //bitPercusoPreOrdem.push_back(0);
     geraBitPercursoPreOrdem(no->dir);
 }
 void arquivoCompactado::codifica() {
@@ -576,7 +583,6 @@ void arquivoCompactado::codifica() {
 void arquivoCompactado::contaFolhas(No *no) {
     if (no->esq == nullptr && no->dir == nullptr) {
         tamanhoAlfabeto = tamanhoAlfabeto + 1;
-        //printf("Tamnaho alfabeto %d\n", tamanhoAlfabeto);
         letrasDoAlfabeto.push_back(no->caractereChave);
         return;
     }
@@ -615,36 +621,27 @@ uint8_t BufferBits::livres()
 
 BufferBitsLeitura::BufferBitsLeitura(FILE *f) :
   BufferBits(f)
-{ printf("Incializou");}
+{}
 
 uint8_t BufferBitsLeitura::le_bit()
 {
-
-  void* aux=&byte;
-  if (n == 0){
-    int test=fread(aux, 1, 1, arquivo);
-    if(test!=1){
-    return 2;
+    void* aux=&byte;
+    if (n == 0){
+        int test=fread(aux, 1, 1, arquivo);
+        if(test!=1){
+          return 2;
+        }
+        n = 8;
     }
-    n = 8;
-}
-
-
-
-
-  if (DEBUG_BITS) printf("n: %d, byte: %d (", n, byte);
-  if (DEBUG_BITS) escrever_binario(byte);
-
-  
-  uint8_t bit;
-  bit = (VALORES[n-1] & byte) ? 1 : 0;
-  n-=1;
-
-  if (DEBUG_BITS) printf(") --> %d(", byte);
-  if (DEBUG_BITS) escrever_binario(byte);
-  if (DEBUG_BITS) printf("), bit: %d\n", bit);
-
-  return bit;
+    //   if (DEBUG_BITS) printf("n: %d, byte: %d (", n, byte);
+    //   if (DEBUG_BITS) escrever_binario(byte);
+    uint8_t bit;
+    bit = (VALORES[8-n] & byte) ? 1 : 0;
+    n-=1;
+    //   if (DEBUG_BITS) printf(") --> %d(", byte);
+    //   if (DEBUG_BITS) escrever_binario(byte);
+    //   if (DEBUG_BITS) printf("), bit: %d\n", bit);
+    return bit;
 }
 
 BufferBitsEscrita::BufferBitsEscrita(FILE *f) :
@@ -653,35 +650,122 @@ BufferBitsEscrita::BufferBitsEscrita(FILE *f) :
 
 void BufferBitsEscrita::escreve_bit(uint8_t bit)
 {
-  if (DEBUG_BITS) printf("bit: %d, n: %d, byte: %d (", bit, n, byte);
-  if (DEBUG_BITS) escrever_binario(byte);
+//   if (DEBUG_BITS) printf("bit: %d, n: %d, byte: %d (", bit, n, byte);
+//   if (DEBUG_BITS) escrever_binario(byte);
 
-    //printf("\n9999 Valor de n: %d 999999\n", n);
   byte = byte | (VALORES[n]*bit);
   n+=1;
-  //printf("\nValor de n: %d\n", n);
 
-  if (DEBUG_BITS) printf(") --> %d(", byte);
-  if (DEBUG_BITS) escrever_binario(byte);
-  if (DEBUG_BITS) printf(")\n");
+//   if (DEBUG_BITS) printf(") --> %d(", byte);
+//   if (DEBUG_BITS) escrever_binario(byte);
+//   if (DEBUG_BITS) printf(")\n");
 
-    //printf("\n###############%d#################\n", n);
   if (n == 8) {
-    //printf("ANTES ERA\n");
     descarrega();
-    //printf("Sera MESMO\n");
-    //printf("DESCARREGA");
   }
-    
 }
 
 void BufferBitsEscrita::descarrega()
 {
     void *aux=&byte;
     fwrite(aux,1,1,arquivo);
-    printf("DESCARREGANDO\n");
-    escrever_binario(byte);
-    byte=0;
+    byte = 0;
     n = 0;
+}
+
+/*
+******************************
+******* DESCOMPACTA **********
+******************************
+*/
+ DescompactaArquivo::DescompactaArquivo(FILE *arquivo): fileCompacto(arquivo){
+    fileSaida = fopen("textoNormal.txt", "w");
+    if (fileSaida == nullptr) {
+        printf("Erro na abriu arquivo");
+    }
+    leitor = new BufferBitsLeitura(arquivo);
+ }
+DescompactaArquivo::~DescompactaArquivo() {
+
+}
+void DescompactaArquivo::leCabecalho() {
+    fseek(fileCompacto, 0, SEEK_SET);
+    char buff[2];
+    fread(buff, 1, 2, fileCompacto);
+    //printf("%d e %d", buff[0], buff[1]);
+    uint16_t maisSignificativo = (uint16_t) buff[1] << 8;
+    uint16_t menosSignificativo = (uint16_t) buff[0];
+    tamanhoAlfabetoD = (int) (maisSignificativo | menosSignificativo);
+
+    printf("%d MSB", maisSignificativo);
+    printf(" %d LSB\n", menosSignificativo);
+    printf("Tamanho %d\n", tamanhoAlfabetoD);
+    vetorCharNoArquivoCompacto.resize((int)tamanhoAlfabetoD, '0');
+    fread(&sobraUltimoByte, 1, 1, fileCompacto);
+    //printf("%d tamanho veotr\n", vetorCharNoArquivoCompacto.size());
+    fread(&vetorCharNoArquivoCompacto, sizeof(unsigned char), 4, fileCompacto);
+
+}   
+
+No* DescompactaArquivo::reconstroiArvorePreOrdem(No *no) {
+    uint8_t bit = leitor->le_bit();
+    if (bit == 1) {
+        unsigned char caractere = vetorCharNoArquivoCompacto[charEncontradosNaPreOrdem++];
+        No *novo = new No(caractere, 0);
+        novo->pai = no;
+        return novo; 
+    }
+    No *novo = new No(0, 0);
+    novo->esq = reconstroiArvorePreOrdem(novo);
+    novo->dir = reconstroiArvorePreOrdem(novo);
+    novo->pai = no;
+
+    return novo;
+}
+
+void DescompactaArquivo::opcaoDescompacta() {
+    leCabecalho();
+    raizArvoreD = reconstroiArvorePreOrdem(nullptr);
+    // No *atual = raizArvoreD;
+    // uint8_t bit;
+    // while (true) {
+    //     if (!feof(fileCompacto)) {
+    //         bit = leitor->le_bit();
+    //         if (bit == 2) {
+    //             break;
+    //         }
+    //         if (bit == 0) {
+    //             atual = atual->esq;
+    //         } else {
+    //             atual = atual->dir;
+    //         }
+    
+    //         if (atual->esq == nullptr && atual->dir == nullptr) {
+    //             void *aux = &(atual->caractereChave);
+    //             fwrite(aux, 1, 1, fileSaida);
+    //             atual = raizArvoreD;
+    //         }
+    //     } 
+    //     else {
+    //         int valido = 8 - sobraUltimoByte;
+    //         for (int i = 0; i < valido; i++) {
+    //             uint8_t bit = leitor->le_bit();
+    //             if (bit == 2) {
+    //                 break;
+    //             }
+    //             if (bit == 0) {
+    //                 atual = atual->esq;
+    //             } else {
+    //                 atual = atual->dir;
+    //             }
+        
+    //             if (atual->esq == nullptr && atual->dir == nullptr) {
+    //                 void *aux = &atual->caractereChave;
+    //                 fwrite(aux, 1, 1, fileSaida);
+    //                 atual = raizArvoreD;
+    //             }
+    //         }
+    //     }
+    // }
 }
 

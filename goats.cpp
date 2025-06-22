@@ -127,7 +127,7 @@ class arquivoCompactado {
         FILE *arquivoParaEscrita;
         uint16_t tamanhoAlfabeto;
         vector <unsigned char> letrasDoAlfabeto;
-        vector <char> bitPercusoPreOrdem;
+        vector <bool> bitPercusoPreOrdem;
         vector <int> bitsUltimoByte;
 
         BufferBits *buffer;
@@ -203,7 +203,7 @@ void opcaoCompactar(FILE *arquivoPtr) {
     //heap.imprimePreOrdem(heap.raizArvore);
     tabelaCodigo arvoreHuffman(heap.raizArvore);
     arvoreHuffman.constroiTabelaDeCodigos(arvoreHuffman.raizArvore);
-    //arvoreHuffman.imprimeTabelaDeCodigo();
+    arvoreHuffman.imprimeTabelaDeCodigo();
     arquivoCompactado compactando(arquivoPtr, arvoreHuffman.vetorTabelaDeCodigo, arvoreHuffman.raizArvore);
     compactando.opcaoCompactaTudo();
 }
@@ -466,15 +466,18 @@ arquivoCompactado::~arquivoCompactado() {
 }
 
 void arquivoCompactado::opcaoCompactaTudo() {
+    geraBitPercursoPreOrdem(raizArvore);
     geraCabecalho();
     traduzParaHuffman();
     fclose(arquivoParaEscrita);
 }
 
 void arquivoCompactado::escreve8Bits(uint8_t byteInteiro) {
-
+    printf("Valor entrado\n");
+    escrever_binario(byteInteiro);
+    printf("&&&&&&&&&&\n");
     uint8_t bitWrite;
-    for (int i = 128; i > 0; i >>= 1) {
+    for (int i = 128; i > 0 ; i >>= 1) {
         // 0100 0001
         //
         if (byteInteiro & i) {
@@ -483,8 +486,8 @@ void arquivoCompactado::escreve8Bits(uint8_t byteInteiro) {
         } else {
             bitWrite = 0;
         }
-        printf("\nValor saindo de write %d\n", bitWrite);
-        escreve_bit(bitWrite);
+        //printf("\nValor saindo de write %d\n", bitWrite);
+        //escreve_bit(bitWrite);
         escrita->escreve_bit(bitWrite);
         //printf("\nValor de n no primeiro%d\n\n&&&&", (escrita->ocupados()));
     }
@@ -503,10 +506,10 @@ void arquivoCompactado::geraCabecalho() {
     escreve8Bits(0);
     //printf("Chegou aqui\n");
     int tam = tamanhoAlfabeto;
-    printf("Tamanho alfabeto %d\n", tam);
+    //printf("Tamanho alfabeto %d\n", tam);
 
     for (int i = 0; i < tam; i++) {
-        printf("#|%c|#\n",(char) letrasDoAlfabeto[i]);
+        //printf("#|%c|#\n",(char) letrasDoAlfabeto[i]);
         escreve8Bits((uint8_t) letrasDoAlfabeto[i]);
     }
 
@@ -523,31 +526,51 @@ void arquivoCompactado::editaQuantidadeUltimoBit(uint8_t ultimoBit) {
 }
 
 void arquivoCompactado::traduzParaHuffman() {
-    unsigned char armazena;
+    char armazena;
+    int tam = (int) bitPercusoPreOrdem.size();
+
+    for (int i = 0; i < tam; i++) {
+        uint8_t bit = (int)bitPercusoPreOrdem[i];
+        escrita->escreve_bit(bit);
+        //printf("Pre-ordem %d---\n", bit);
+    }
+    fseek(arquivoParaLeitura, 0, SEEK_SET);
     fread(&armazena, 1, 1, arquivoParaLeitura);
+    // cout<<"funciona"<<endl;
+    printf("ENTRANDO NO TEXTO EM SI %c\n", armazena);
+
     while (!feof(arquivoParaLeitura)) {
         string bitParaEscrever = vetorTabelaDeCodigo[armazena];
+        std::cout << "VOLOR " <<bitParaEscrever << endl;
         int tam = (vetorTabelaDeCodigo[armazena]).size();
-    
+        // printf("----\n");
+        // for (int i = 0; i < tam; i++){
+        //     printf("%c ", bitParaEscrever[i]);
+        // }
+        // cout<<"\nteste\n"<<endl;
         for (int i = 0; i < tam; i++){
-            escrita->escreve_bit(bitParaEscrever[0]);
+            escrita->escreve_bit(bitParaEscrever[i]);
+            //printf("%c ", bitParaEscrever[i]);
         }
         fread(&armazena, 1, 1, arquivoParaLeitura);
     }
+
     int n = escrita->ocupados();
+    // printf("O VALOR DE N %d\n", n);
     if (n != 0) {
-        editaQuantidadeUltimoBit((uint8_t)n);
         escrita->descarrega();
+        //editaQuantidadeUltimoBit((uint8_t)n);
     }
 }
 void arquivoCompactado::geraBitPercursoPreOrdem(No *no) {
     if (no == nullptr) {
+        bitPercusoPreOrdem.pop_back();
         return;
     }
 
-    bitPercusoPreOrdem.push_back('0');
+    bitPercusoPreOrdem.push_back(0);
     geraBitPercursoPreOrdem(no->esq);
-    bitPercusoPreOrdem.push_back('1');
+    bitPercusoPreOrdem.push_back(1);
     geraBitPercursoPreOrdem(no->dir);
 }
 void arquivoCompactado::codifica() {
@@ -637,7 +660,7 @@ void BufferBitsEscrita::escreve_bit(uint8_t bit)
   if (DEBUG_BITS) escrever_binario(byte);
 
     //printf("\n9999 Valor de n: %d 999999\n", n);
-  byte = byte | (VALORES[n-1]*bit);
+  byte = byte | (VALORES[n]*bit);
   n+=1;
   //printf("\nValor de n: %d\n", n);
 
@@ -659,6 +682,8 @@ void BufferBitsEscrita::descarrega()
 {
     void *aux=&byte;
     fwrite(aux,1,1,arquivo);
+    printf("DESCARREGANDO\n");
+    escrever_binario(byte);
     byte=0;
     n = 0;
 }

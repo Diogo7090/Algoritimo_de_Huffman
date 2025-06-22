@@ -182,7 +182,7 @@ int VALORES[8]={128,64,32,16,8,4,2,1};
 #####################################
 */
 int main() {
-    FILE *arquivo = fopen("../teste.txt", "r");
+    FILE *arquivo = fopen("teste.txt", "r");
     if (arquivo == nullptr) {
         printf("Erro ao abrir arquivo\n");
     }
@@ -458,18 +458,14 @@ arquivoParaLeitura(arquivoLeitura), vetorTabelaDeCodigo(vetorTabCodigo), raizArv
 }
 
 arquivoCompactado::~arquivoCompactado() {
-    fclose(arquivoParaEscrita);
-    printf("Chegou aqui\n");
-    delete buffer;
-    delete leitura;
     delete escrita;
+    fclose(arquivoParaEscrita);
 }
 
 void arquivoCompactado::opcaoCompactaTudo() {
     geraBitPercursoPreOrdem(raizArvore);
     geraCabecalho();
     traduzParaHuffman();
-    fclose(arquivoParaEscrita);
 }
 
 void arquivoCompactado::escreve8Bits(uint8_t byteInteiro) {
@@ -521,7 +517,7 @@ void arquivoCompactado::geraCabecalho() {
 
 void arquivoCompactado::editaQuantidadeUltimoBit(uint8_t ultimoBit) {
     unsigned char ultimo = (char) ultimoBit;
-    fseek(arquivoParaEscrita, 15, SEEK_SET);
+    fseek(arquivoParaEscrita, 2, SEEK_SET);
     fwrite(&ultimo, 1, 1,arquivoParaEscrita);
 }
 
@@ -558,8 +554,9 @@ void arquivoCompactado::traduzParaHuffman() {
     int n = escrita->ocupados();
     // printf("O VALOR DE N %d\n", n);
     if (n != 0) {
+        editaQuantidadeUltimoBit((uint8_t)(8 - n));
+        fseek(arquivoParaEscrita, 0, SEEK_END);
         escrita->descarrega();
-        //editaQuantidadeUltimoBit((uint8_t)n);
     }
 }
 void arquivoCompactado::geraBitPercursoPreOrdem(No *no) {

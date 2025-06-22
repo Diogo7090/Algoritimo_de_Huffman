@@ -560,7 +560,7 @@ void BufferBitsEscrita::descarrega()
 
 void opcaoDescompactar(FILE *arquivoCompactado, const char* nomeArquivoSaida) {
     BufferBitsLeitura leitor(arquivoCompactado);
-    No* raiz = reconstruirArvore(&leitor);
+    No* raiz = reconstroiArvorePreOrdem(&leitor);
     FILE *arquivoSaida = fopen(nomeArquivoSaida, "w");
     if (!arquivoSaida) return;
 
@@ -582,7 +582,7 @@ void opcaoDescompactar(FILE *arquivoCompactado, const char* nomeArquivoSaida) {
     fclose(arquivoSaida);
 }
 
-No* reconstruirArvore(BufferBitsLeitura *leitor) {
+No* reconstroiArvorePreOrdem(BufferBitsLeitura *leitor) {
     uint8_t bit = leitor->le_bit();
     if (bit == 1) {
         unsigned char caractere;
@@ -590,10 +590,12 @@ No* reconstruirArvore(BufferBitsLeitura *leitor) {
         return new No(caractere, 0);
     }
 
-    No* esquerda = reconstruirArvore(leitor);
-    No* direita = reconstruirArvore(leitor);
+    No* esquerda = reconstroiArvorePreOrdem(leitor);
+    No* direita = reconstroiArvorePreOrdem(leitor);
     No* pai = new No();
     pai->esq = esquerda;
     pai->dir = direita;
     return pai;
 }
+
+

@@ -146,6 +146,7 @@ protected:
   uint8_t n;     
 
 public:
+    uint8_t fimDoArquivo;
   BufferBits(FILE *arquivo);  
   uint8_t ocupados();         
   uint8_t livres();           
@@ -172,9 +173,9 @@ class DescompactaArquivo {
         FILE *fileCompacto;
         FILE *fileSaida;
         int tamanhoAlfabetoD;
+        int charEncontradosNaPreOrdem;
         int sobraUltimoByte;
         vector <unsigned char> vetorCharNoArquivoCompacto;
-        int charEncontradosNaPreOrdem;
         BufferBitsLeitura *leitor;
 
     public:
@@ -193,23 +194,23 @@ int VALORES[8]={128,64,32,16,8,4,2,1};
 #####################################
 */
 int main() {
-    // FILE *arquivo = fopen("../teste.txt", "r");
-    // if (arquivo == nullptr) {
-    //     printf("Erro ao abrir arquivo\n");
-
-    // } else {
-    //     opcaoCompactar(arquivo);
-    //     fclose(arquivo);
-    // }
-
-    FILE *arquivo = fopen("../saida.huff", "rb");
-    if (arquivo == nullptr) {
+    FILE *arquivo1 = fopen("../teste.txt", "r");
+    if (arquivo1 == nullptr) {
         printf("Erro ao abrir arquivo\n");
 
     } else {
-        opcaoDescompactar(arquivo);
+        opcaoCompactar(arquivo1);
+        fclose(arquivo1);
+    }
+
+    FILE *arquivo2 = fopen("saida.huff", "rb");
+    if (arquivo2 == nullptr) {
+        printf("Erro ao abrir arquivo\n");
+
+    } else {
+        opcaoDescompactar(arquivo2);
         printf("Descompactar\n");
-        fclose(arquivo);
+        fclose(arquivo2);
     }
     printf("Concluido\n");
 
@@ -606,7 +607,8 @@ void escrever_binario(uint8_t numero)
 BufferBits::BufferBits(FILE *arquivo) :
   arquivo(arquivo),
   byte(0),
-  n(0)
+  n(0),
+  fimDoArquivo(0)
 { }
 
 uint8_t BufferBits::ocupados()
@@ -628,6 +630,8 @@ uint8_t BufferBitsLeitura::le_bit()
     void* aux=&byte;
     if (n == 0){
         int test=fread(aux, 1, 1, arquivo);
+        fimDoArquivo = (uint8_t) test;
+        //printf("%d----\n", test);
         if(test!=1){
           return 2;
         }
@@ -678,7 +682,8 @@ void BufferBitsEscrita::descarrega()
 ******* DESCOMPACTA **********
 ******************************
 */
- DescompactaArquivo::DescompactaArquivo(FILE *arquivo): fileCompacto(arquivo){
+ DescompactaArquivo::DescompactaArquivo(FILE *arquivo): fileCompacto(arquivo),
+ tamanhoAlfabetoD(0), charEncontradosNaPreOrdem(0), sobraUltimoByte(0){
     fileSaida = fopen("textoNormal.txt", "w");
     if (fileSaida == nullptr) {
         printf("Erro na abriu arquivo");
@@ -690,82 +695,68 @@ DescompactaArquivo::~DescompactaArquivo() {
 }
 void DescompactaArquivo::leCabecalho() {
     fseek(fileCompacto, 0, SEEK_SET);
-    char buff[2];
-    fread(buff, 1, 2, fileCompacto);
+    unsigned char buff[2];
+    unsigned char temp;
+    fread(buff, sizeof(unsigned char), 2, fileCompacto);
     //printf("%d e %d", buff[0], buff[1]);
     uint16_t maisSignificativo = (uint16_t) buff[1] << 8;
     uint16_t menosSignificativo = (uint16_t) buff[0];
     tamanhoAlfabetoD = (int) (maisSignificativo | menosSignificativo);
-
-    printf("%d MSB", maisSignificativo);
-    printf(" %d LSB\n", menosSignificativo);
-    printf("Tamanho %d\n", tamanhoAlfabetoD);
-    vetorCharNoArquivoCompacto.resize((int)tamanhoAlfabetoD, '0');
-    fread(&sobraUltimoByte, 1, 1, fileCompacto);
-    //printf("%d tamanho veotr\n", vetorCharNoArquivoCompacto.size());
-    fread(&vetorCharNoArquivoCompacto, sizeof(unsigned char), 4, fileCompacto);
-
+    fread(&temp, sizeof(unsigned char), 1, fileCompacto);
+    sobraUltimoByte = (int) temp;
+    vetorCharNoArquivoCompacto.resize(tamanhoAlfabetoD);
+    fread(&vetorCharNoArquivoCompacto[0], sizeof(unsigned char), tamanhoAlfabetoD, fileCompacto);
 }   
 
 No* DescompactaArquivo::reconstroiArvorePreOrdem(No *no) {
-    uint8_t bit = leitor->le_bit();
-    if (bit == 1) {
-        unsigned char caractere = vetorCharNoArquivoCompacto[charEncontradosNaPreOrdem++];
-        No *novo = new No(caractere, 0);
+    if (charEncontradosNaPreOrdem < tamanhoAlfabetoD) {
+        uint8_t bit = leitor->le_bit();
+        if (bit == 1) {
+            unsigned char caractere = vetorCharNoArquivoCompacto[charEncontradosNaPreOrdem++];
+            printf("%d\n", charEncontradosNaPreOrdem);
+            No *novo = new No(caractere, 0);
+            novo->pai = no;
+            return novo; 
+        }
+        No *novo = new No(0, 0);
+        novo->esq = reconstroiArvorePreOrdem(novo);
+        novo->dir = reconstroiArvorePreOrdem(novo);
         novo->pai = no;
-        return novo; 
+    
+        return novo;
     }
-    No *novo = new No(0, 0);
-    novo->esq = reconstroiArvorePreOrdem(novo);
-    novo->dir = reconstroiArvorePreOrdem(novo);
-    novo->pai = no;
-
-    return novo;
+    return nullptr;
 }
 
 void DescompactaArquivo::opcaoDescompacta() {
     leCabecalho();
     raizArvoreD = reconstroiArvorePreOrdem(nullptr);
-    // No *atual = raizArvoreD;
-    // uint8_t bit;
-    // while (true) {
-    //     if (!feof(fileCompacto)) {
-    //         bit = leitor->le_bit();
-    //         if (bit == 2) {
-    //             break;
-    //         }
-    //         if (bit == 0) {
-    //             atual = atual->esq;
-    //         } else {
-    //             atual = atual->dir;
-    //         }
+    No *atual = raizArvoreD;
+    No *ultimo = raizArvoreD;
+    uint8_t bit;
+    while (true) {
+        if (!feof(fileCompacto)) {
+            bit = leitor->le_bit();
+            if (bit == 2) {
+                break;
+            }
+            if (bit == 0) {
+                atual = atual->esq;
+            } else {
+                atual = atual->dir;
+            }
     
-    //         if (atual->esq == nullptr && atual->dir == nullptr) {
-    //             void *aux = &(atual->caractereChave);
-    //             fwrite(aux, 1, 1, fileSaida);
-    //             atual = raizArvoreD;
-    //         }
-    //     } 
-    //     else {
-    //         int valido = 8 - sobraUltimoByte;
-    //         for (int i = 0; i < valido; i++) {
-    //             uint8_t bit = leitor->le_bit();
-    //             if (bit == 2) {
-    //                 break;
-    //             }
-    //             if (bit == 0) {
-    //                 atual = atual->esq;
-    //             } else {
-    //                 atual = atual->dir;
-    //             }
-        
-    //             if (atual->esq == nullptr && atual->dir == nullptr) {
-    //                 void *aux = &atual->caractereChave;
-    //                 fwrite(aux, 1, 1, fileSaida);
-    //                 atual = raizArvoreD;
-    //             }
-    //         }
-    //     }
-    // }
+            if (atual->esq == nullptr && atual->dir == nullptr) {
+                void *aux = &(atual->caractereChave);
+                fwrite(aux, 1, 1, fileSaida);
+                ultimo = atual;
+                atual = raizArvoreD;
+            }
+            if (!feof(fileCompacto)) {
+                printf("Ultimo byte\n");
+                printf("//%d//--- %c//////\n",leitor->fimDoArquivo, ultimo->caractereChave);
+            }
+        } 
+    }
 }
 

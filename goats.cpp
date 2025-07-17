@@ -26,9 +26,10 @@ class BufferBitsLeitura;
 class BufferBitsEscrita;
 class DescompactaArquivo;
 
-void opcaoCompactar(FILE *arquivoPtr);
-void opcaoDescompactar(FILE *arquivoCompactado);
+void opcaoCompactar(FILE *arquivoPtr, FILE *arquivoPtr1);
+void opcaoDescompactar(FILE *arquivoCompactado, FILE *arquivoPtr2);
 void escrever_binario(uint8_t numero);
+void limpaArvore(No *no);
 
 class Frequencia {
     private:
@@ -95,7 +96,7 @@ class Heap {
         void imprimeHeap();
         void imprimePreOrdem(No *noz);
         No *raizArvore = nullptr;
-        void limpaArvore(No *no);
+        
 };
 
 class tabelaCodigo {
@@ -126,7 +127,7 @@ class arquivoCompactado {
         BufferBitsLeitura *leitura;
         BufferBitsEscrita *escrita;
     public:
-        arquivoCompactado(FILE *arquivoLeitura, vector <string> vetorTabCodigo, No* raiz);
+        arquivoCompactado(FILE *arquivoLeitura, FILE *arquivoEscrita, vector <string> vetorTabCodigo, No* raiz);
         ~arquivoCompactado();
         void geraCabecalho();
         void geraBitPercursoPreOrdem(No *no);
@@ -179,7 +180,7 @@ class DescompactaArquivo {
         BufferBitsLeitura *leitor;
 
     public:
-        DescompactaArquivo(FILE *arquivo);
+        DescompactaArquivo(FILE *arquivo,FILE *arquivo2);
         ~DescompactaArquivo();
         No* reconstroiArvorePreOrdem(No *no);
         void opcaoDescompacta();
@@ -193,31 +194,38 @@ int VALORES[8]={128,64,32,16,8,4,2,1};
 #####################################
 #####################################
 */
-int main() {
-    FILE *arquivo1 = fopen("../teste.txt", "r");
-    if (arquivo1 == nullptr) {
-        printf("Erro ao abrir arquivo\n");
+int main(int argc, char *argv[]) {
+    string opcao = argv[1];
+    if (opcao == "c") {
+        FILE *arquivo1 = fopen(argv[2], "r");
+        FILE *arquivo2 = fopen(argv[3], "wb+");
+        if (arquivo1 == nullptr) {
+            printf("Erro ao abrir arquivo\n");
 
-    } else {
-        opcaoCompactar(arquivo1);
-        fclose(arquivo1);
+        } else {
+            opcaoCompactar(arquivo1, arquivo2);
+            fclose(arquivo1);
+            fclose(arquivo2);
+        }
     }
+    else if (opcao == "d") {
+        FILE *arquivo3 = fopen(argv[2], "rb");
+        FILE *arquivo4 = fopen(argv[3], "w");
+        if (arquivo3 == nullptr) {
+            printf("Erro ao abrir arquivo\n");
 
-    FILE *arquivo2 = fopen("saida.huff", "rb");
-    if (arquivo2 == nullptr) {
-        printf("Erro ao abrir arquivo\n");
-
-    } else {
-        opcaoDescompactar(arquivo2);
-        printf("Descompactar\n");
-        fclose(arquivo2);
+        } else {
+            opcaoDescompactar(arquivo3, arquivo4);
+            printf("Descompactar\n");
+            fclose(arquivo3);
+            fclose(arquivo4);
+        }
     }
     printf("Concluido\n");
-
     return 0;
 }
 
-void opcaoCompactar(FILE *arquivoPtr) {
+void opcaoCompactar(FILE *arquivoPtr, FILE *arquivoPtr1) {
     Frequencia contadorFreq(arquivoPtr);
     //contadorFreq.escreveTabela();
     vector <No*> vetor = contadorFreq.criarVetorFinal();
@@ -232,12 +240,12 @@ void opcaoCompactar(FILE *arquivoPtr) {
     tabelaCodigo arvoreHuffman(heap.raizArvore);
     arvoreHuffman.constroiTabelaDeCodigos(arvoreHuffman.raizArvore);
     //arvoreHuffman.imprimeTabelaDeCodigo();
-    arquivoCompactado compactando(arquivoPtr, arvoreHuffman.vetorTabelaDeCodigo, arvoreHuffman.raizArvore);
+    arquivoCompactado compactando(arquivoPtr,arquivoPtr1, arvoreHuffman.vetorTabelaDeCodigo, arvoreHuffman.raizArvore);
     compactando.opcaoCompactaTudo();
 }
 
-void opcaoDescompactar(FILE *arquivoCompactado) {
-    DescompactaArquivo descompacta(arquivoCompactado);
+void opcaoDescompactar(FILE *arquivoCompactado, FILE *arquivoPtr2) {
+    DescompactaArquivo descompacta(arquivoCompactado, arquivoPtr2);
     printf("-----\n");
     descompacta.opcaoDescompacta();
     printf("-----\n");
@@ -294,13 +302,14 @@ Heap::~Heap() {
     limpaArvore(raizArvore);
 }
 
-void Heap::limpaArvore(No *no) {
+void limpaArvore(No *no) {
     if (no == nullptr) {
         return;
     }
     limpaArvore(no->esq);
     limpaArvore(no->dir);
     delete no;
+    no = nullptr;
 }
 
 int Heap::pai(int posicao) {
@@ -467,11 +476,12 @@ void tabelaCodigo::imprimeTabelaDeCodigo() {
 ************************************
 */
 
-arquivoCompactado::arquivoCompactado(FILE *arquivoLeitura, vector <string> vetorTabCodigo, No* raiz):
-arquivoParaLeitura(arquivoLeitura), vetorTabelaDeCodigo(vetorTabCodigo), raizArvore(raiz), tamanhoAlfabeto(0){
+arquivoCompactado::arquivoCompactado(FILE *arquivoLeitura, FILE *arquivoEscrita, vector <string> vetorTabCodigo, No* raiz):
+arquivoParaLeitura(arquivoLeitura), vetorTabelaDeCodigo(vetorTabCodigo), raizArvore(raiz), arquivoParaEscrita(arquivoEscrita), 
+tamanhoAlfabeto(0){
     //buffer = new BufferBits(arquivoLeitura);
     //leitura = new BufferBitsLeitura(arquivoLeitura);
-    arquivoParaEscrita = fopen("saida.huff", "wb+");
+
     if (arquivoParaEscrita == nullptr) {
         printf("Erro para abrir arquivo de saida\n");
     }
@@ -481,7 +491,7 @@ arquivoParaLeitura(arquivoLeitura), vetorTabelaDeCodigo(vetorTabCodigo), raizArv
 
 arquivoCompactado::~arquivoCompactado() {
     delete escrita;
-    fclose(arquivoParaEscrita);
+    escrita = nullptr;
 }
 
 void arquivoCompactado::opcaoCompactaTudo() {
@@ -682,16 +692,17 @@ void BufferBitsEscrita::descarrega()
 ******* DESCOMPACTA **********
 ******************************
 */
- DescompactaArquivo::DescompactaArquivo(FILE *arquivo): fileCompacto(arquivo),
- tamanhoAlfabetoD(0), charEncontradosNaPreOrdem(0), sobraUltimoByte(0){
-    fileSaida = fopen("textoNormal.txt", "w");
+ DescompactaArquivo::DescompactaArquivo(FILE *arquivo, FILE *arquivo2): fileCompacto(arquivo),
+ fileSaida(arquivo2), tamanhoAlfabetoD(0), charEncontradosNaPreOrdem(0), sobraUltimoByte(0) {
     if (fileSaida == nullptr) {
         printf("Erro na abriu arquivo");
     }
     leitor = new BufferBitsLeitura(arquivo);
  }
 DescompactaArquivo::~DescompactaArquivo() {
-
+    limpaArvore(raizArvoreD);
+    delete leitor;
+    leitor = nullptr;
 }
 void DescompactaArquivo::leCabecalho() {
     fseek(fileCompacto, 0, SEEK_SET);
@@ -713,7 +724,7 @@ No* DescompactaArquivo::reconstroiArvorePreOrdem(No *no) {
         uint8_t bit = leitor->le_bit();
         if (bit == 1) {
             unsigned char caractere = vetorCharNoArquivoCompacto[charEncontradosNaPreOrdem++];
-            printf("%d\n", charEncontradosNaPreOrdem);
+            //printf("%d\n", charEncontradosNaPreOrdem);
             No *novo = new No(caractere, 0);
             novo->pai = no;
             return novo; 
@@ -732,7 +743,6 @@ void DescompactaArquivo::opcaoDescompacta() {
     leCabecalho();
     raizArvoreD = reconstroiArvorePreOrdem(nullptr);
     No *atual = raizArvoreD;
-    No *ultimo = raizArvoreD;
     uint8_t bit;
     while (true) {
         if (!feof(fileCompacto)) {
@@ -749,12 +759,7 @@ void DescompactaArquivo::opcaoDescompacta() {
             if (atual->esq == nullptr && atual->dir == nullptr) {
                 void *aux = &(atual->caractereChave);
                 fwrite(aux, 1, 1, fileSaida);
-                ultimo = atual;
                 atual = raizArvoreD;
-            }
-            if (!feof(fileCompacto)) {
-                printf("Ultimo byte\n");
-                printf("//%d//--- %c//////\n",leitor->fimDoArquivo, ultimo->caractereChave);
             }
         } 
     }
